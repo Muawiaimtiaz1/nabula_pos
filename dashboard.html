@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ManageShop Mobile Dashboard</title>
+    <link rel="manifest" href="manifest.json">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="notification.css">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="app.js"></script>
+    <script src="sw-register.js"></script>
+</head>
+
+<body class="bg-gray-100 flex flex-col min-h-screen">
+
+    <!-- Notification Container -->
+    <div id="notification-container"></div>
+
+    <!-- MAIN CONTENT -->
+    <main id="mainContent" class="flex-1 p-4 overflow-y-auto pb-24"></main>
+
+    <!-- BOTTOM NAVIGATION -->
+    <nav
+        class="fixed bottom-4 left-1/2 transform -translate-x-1/2 w-[95%] bg-white rounded-2xl shadow-lg flex justify-around p-3 items-center">
+        <button onclick="renderScreen('products');setActiveButton('products-button')" id="products-button"
+            class="flex flex-col items-center text-grey-600 hover:text-blue-800 ">
+            <span class="material-icons">inventory_2</span>
+            <span class="text-xs">Products</span>
+        </button>
+        <button onclick="renderScreen('sales');setActiveButton('sales-button')" id="sales-button"
+            class="flex flex-col items-center text-gray-600 hover:text-blue-800  ">
+            <span class="material-icons">point_of_sale</span>
+            <span class="text-xs">Sales</span>
+        </button>
+        <button onclick="renderScreen('customers');setActiveButton('customer-button')" id="customers-button"
+            class="flex flex-col items-center text-gray-600 hover:text-blue-800 ">
+            <span class="material-icons">people</span>
+            <span class="text-xs">Customers</span>
+        </button>
+        <button onclick="logout()" class="flex flex-col items-center text-red-600 hover:text-red-800">
+            <span class="material-icons">logout</span>
+            <span class="text-xs">Logout</span>
+        </button>
+    </nav>
+
+    <!-- Material Icons CDN -->
+
+
+</body>
+<script>
+    function setActiveButton(clickedId) {
+        // Select all buttons inside your nav
+        const buttons = [
+            'products-button',
+            'sales-button',
+            'customers-button'
+        ];
+
+        buttons.forEach(id => {
+            const btn = document.getElementById(id);
+            if (id === clickedId) {
+                btn.classList.remove('text-gray-600', 'text-grey-600'); // remove old gray
+                btn.classList.add('text-blue-600'); // make blue
+            } else {
+                btn.classList.remove('text-blue-600'); // remove blue
+                btn.classList.add('text-gray-600'); // make gray
+            }
+        });
+    }
+</script>
+
+</html>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Product Data Flow Test</title>
+</head>
+
+<body>
+    <h1>Product Data Flow Test</h1>
+    <button onclick="testDataFlow()">Test Data Flow</button>
+    <pre id="output"></pre>
+
+    <script type="module">
+        import { initDB, getProductsFromDB, saveProductsToDB } from './indexed_db.js';
+
+        window.testDataFlow = async function () {
+            const output = document.getElementById('output');
+            output.textContent = 'Testing...\n';
+
+            try {
+                // Step 1: Initialize DB
+                output.textContent += '1. Initializing IndexedDB...\n';
+                await initDB();
+                output.textContent += '   ✓ IndexedDB initialized\n\n';
+
+                // Step 2: Test saving products
+                output.textContent += '2. Testing save to IndexedDB...\n';
+                const testProducts = [
+                    { id: 'test1', uid: 'testUser123', name: 'Product 1', price: 10, quantity: 5 },
+                    { id: 'test2', uid: 'testUser123', name: 'Product 2', price: 20, quantity: 10 }
+                ];
+                await saveProductsToDB(testProducts);
+                output.textContent += '   ✓ Saved 2 test products\n\n';
+
+                // Step 3: Test retrieving products
+                output.textContent += '3. Testing retrieve from IndexedDB...\n';
+                const retrieved = await getProductsFromDB('testUser123');
+                output.textContent += `   ✓ Retrieved ${retrieved.length} products\n`;
+                output.textContent += `   Products: ${JSON.stringify(retrieved, null, 2)}\n\n`;
+
+                if (retrieved.length === 2) {
+                    output.textContent += '✅ DATA FLOW WORKING!\n';
+                } else {
+                    output.textContent += '❌ DATA FLOW BROKEN - Expected 2 products, got ' + retrieved.length + '\n';
+                }
+
+            } catch (error) {
+                output.textContent += '\n❌ ERROR: ' + error + '\n';
+                console.error(error);
+            }
+        };
+    </script>
+</body>
+
+</html>
