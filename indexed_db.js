@@ -157,6 +157,26 @@ export function markOrderAsSynced(id) {
 }
 
 // --------------------------
+// Clear All Orders
+// --------------------------
+export function clearAllOrders() {
+  return new Promise((resolve, reject) => {
+    if (!db) return reject("DB not initialized");
+
+    const tx = db.transaction("orders", "readwrite");
+    const store = tx.objectStore("orders");
+    const request = store.clear();
+
+    request.onsuccess = () => {
+      console.log("[IDB] ✅ Cleared all orders from IndexedDB");
+      resolve(true);
+    };
+
+    request.onerror = e => reject(e);
+  });
+}
+
+// --------------------------
 // Products Functions
 // --------------------------
 

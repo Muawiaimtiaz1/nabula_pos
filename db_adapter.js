@@ -1,10 +1,10 @@
 import { auth, db } from "./firebase.js";
 import {
-    collection, addDoc, query, where, onSnapshot
+    collection, addDoc, query, where, onSnapshot, getDocs
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 import {
     initDB, saveOrderToDB, view_orders_from_indexed_db, getUnsyncedOrders, markOrderAsSynced,
-    saveProductsToDB, getProductsFromDB, clearProductsDB
+    clearAllOrders, saveProductsToDB, getProductsFromDB, clearProductsDB
 } from "./indexed_db.js";
 
 class DBAdapter {
@@ -20,10 +20,15 @@ class DBAdapter {
         // Try to sync on startup
         this.syncOrders();
 
+        // Fetch orders from Firebase to IndexedDB when online
+        if (navigator.onLine) {
+            this.syncOrdersFromFirebase();
+        }
+
         // Listen for online status
         window.addEventListener('online', () => {
             console.log("Network is ONLINE. Attempting sync...");
-            this.syncOrders();
+            this.syncOrdersFromFirebase(); // Full sync when coming online
         });
 
         window.addEventListener('offline', () => {
@@ -34,14 +39,14 @@ class DBAdapter {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && navigator.onLine) {
                 console.log("Tab is now visible and online. Attempting sync...");
-                this.syncOrders();
+                this.syncOrdersFromFirebase(); // Full sync
             }
         });
 
         // Periodic sync check (every 5 seconds) for automatic sync
         setInterval(() => {
             if (navigator.onLine) {
-                this.syncOrders();
+                this.syncOrders(); // Upload unsynced only
             }
         }, 5000);
     }
@@ -148,6 +153,75 @@ class DBAdapter {
                 console.error("[SYNC] Permission denied - check Firebase security rules");
             }
             return false;
+        }
+    }
+
+    // Fetch all orders from Firebase and save to IndexedDB
+    // Strategy: Upload unsynced → Clear IndexedDB → Download fresh from Firebase
+    async syncOrdersFromFirebase(userEmail = null) {
+        if (!navigator.onLine) {
+            console.log("[SYNC_DOWN] Offline, skipping Firebase order sync");
+            return;
+        }
+
+        try {
+            console.log("[SYNC_DOWN] ═══════ Starting Full Order Sync ═══════");
+
+            // Get current user email if not provided
+            if (!userEmail && auth.currentUser) {
+                userEmail = auth.currentUser.email;
+                console.log("[SYNC_DOWN] Got user email from auth.currentUser:", userEmail);
+            } else if (!userEmail) {
+                console.log("[SYNC_DOWN] Waiting for auth.currentUser...");
+                // Wait a bit for auth to be ready
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                if (auth.currentUser) {
+                    userEmail = auth.currentUser.email;
+                    console.log("[SYNC_DOWN] Got user email after wait:", userEmail);
+                }
+            }
+
+            if (!userEmail) {
+                console.warn("[SYNC_DOWN] ⚠️ No user email available, cannot sync orders");
+                return;
+            }
+
+            // STEP 1: Upload all unsynced orders to Firebase first
+            console.log("[SYNC_DOWN] Step 1/3: Uploading unsynced orders to Firebase...");
+            await this.syncOrders(); // This uploads unsynced orders
+            console.log("[SYNC_DOWN] Step 1/3: ✅ Upload complete");
+
+            // STEP 2: Clear all orders from IndexedDB
+            console.log("[SYNC_DOWN] Step 2/3: Clearing IndexedDB orders...");
+            await clearAllOrders();
+            console.log("[SYNC_DOWN] Step 2/3: ✅ Clear complete");
+
+            // STEP 3: Fetch all orders from Firebase (single source of truth)
+            console.log("[SYNC_DOWN] Step 3/3: Downloading all orders from Firebase...");
+            const q = query(collection(db, 'orders'), where('user', '==', userEmail));
+            console.log("[SYNC_DOWN] Querying Firebase for user:", userEmail);
+
+            const querySnapshot = await getDocs(q);
+            console.log(`[SYNC_DOWN] Query complete. Found ${querySnapshot.size} orders in Firebase`);
+
+            if (querySnapshot.empty) {
+                console.log("[SYNC_DOWN] No orders found in Firebase for this user");
+            }
+
+            let savedCount = 0;
+            // Save each order to IndexedDB with synced=true
+            for (const doc of querySnapshot.docs) {
+                const orderData = { ...doc.data(), id: doc.id, synced: true };
+                console.log("[SYNC_DOWN] Saving order to IndexedDB:", orderData.id);
+                await saveOrderToDB(orderData);
+                savedCount++;
+            }
+
+            console.log(`[SYNC_DOWN] Step 3/3: ✅ Download complete`);
+            console.log(`[SYNC_DOWN] ✅✅✅ SYNC COMPLETE! Saved ${savedCount} orders from Firebase to IndexedDB`);
+        } catch (err) {
+            console.error("[SYNC_DOWN] ❌ Error during order sync:", err);
+            console.error("[SYNC_DOWN] Error stack:", err.stack);
         }
     }
 
